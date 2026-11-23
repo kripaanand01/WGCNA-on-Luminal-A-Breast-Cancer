@@ -1,0 +1,96 @@
+---
+title: "TGCA Download"
+author: "Kripa Anand"
+date: "2026-10-21"
+output: html_document
+---
+```{r}
+library(TCGAbiolinks)
+library(SummarizedExperiment)
+```
+
+
+```{r}
+query.exp <- GDCquery(
+    project = "TCGA-BRCA", 
+    data.category = "Transcriptome Profiling",
+    data.type = "Gene Expression Quantification", 
+    workflow.type = "STAR - Counts",
+    sample.type = c("Primary Tumor")
+)
+```
+
+
+```{r}
+GDCdownload(
+    query = query.exp,
+    files.per.chunk = 100)
+```
+
+```{r}
+#if data is already downloaded from GDC skip download and run 
+
+brca.data <- GDCprepare(query.exp, directory = "GDCdata")
+```
+
+
+```{r}
+
+#if downloading for the first time run 
+
+brca.data <- GDCprepare(query.exp)
+
+```
+
+```{r}
+sample.info <- SummarizedExperiment::colData(brca.data)
+#tells the types of data downloaded from TCGA as column names
+#looking to isolate the PAM50 subtype - Luminal A (ER+/HER-)
+#"paper_BRCA_Subtype_PAM50" gives information on the type- filter by this 
+```
+
+
+```{r}
+#subset the data by cancer subtype. will throw error is NAs not handled
+
+brca_lumA <- brca.data[,brca.data$paper_BRCA_Subtype_PAM50 == "LumA" & !is.na(brca.data$paper_BRCA_Subtype_PAM50)]
+
+```
+
+```{r}
+#creates a matrix containing the gene id and counts from the GDC data
+
+brca_matrix <- assay(brca_lumA, "fpkm_unstrand")
+```
+
+```{r}
+
+#if raw counts is preferred can use instead 
+brca_matrix2 <- assay(brca_lumA, "stranded_first")
+```
+
+```{r}
+#export the assay data to a CSV file
+#just in case
+brca_fpkm <- as.data.frame(brca_matrix2)
+write.csv(brca_fpkm, "brca_counts.csv")
+```
+
+```{r}
+query.clinic <- GDCquery_clinic(project = "TCGA-BRCA",
+                                type = "clinical",
+                                save.csv = FALSE)
+```
+
+```{r}
+clinical_data <- as.data.frame(query.clinic)
+```
+
+```{r}
+clinical_data <- clinical_data[,c(2,4,16,44,53,55)]
+```
+
+```{r}
+write.csv(clinical_data,"clinical_data.csv", row.names = TRUE)
+```
+
